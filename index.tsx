@@ -32,11 +32,13 @@ const server = Bun.serve({
         ws.data.count += 1
         ws.sendText(renderToString(<Counter count={ws.data.count} globalCount={state.globalCount} />))
       }, 1000))
-      pubsub.on('change', () => {
+      ws.data.onchange = () => {
         ws.sendText(renderToString(<Counter count={ws.data.count} globalCount={state.globalCount} />))
-      })
+      }
+      pubsub.on('change', ws.data.onchange)
     },
     close(ws, code, reason) {
+      pubsub.off('change', ws.data.onchange)
       ws.data.timerHandles.forEach(clearInterval)
     },
     message(ws, message) {
@@ -48,7 +50,6 @@ const server = Bun.serve({
         state.globalCount += 1
         const output = renderToString(<Counter count={ws.data.count} globalCount={state.globalCount} />)
         pubsub.emit('change')
-        ws.subscribe
         ws.sendText(output)
       }
     },
