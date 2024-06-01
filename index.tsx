@@ -10,6 +10,9 @@ const state = {
   globalCount: 0
 }
 
+// Could we add a proxy around per-socket + global state
+// So that we automatically re-render when they change?
+
 const server = Bun.serve({
   fetch(req, svr) {
     if (svr.upgrade(req, {data: {}})) {
@@ -25,27 +28,34 @@ const server = Bun.serve({
     perMessageDeflate: true,
     async open(ws) {
       console.log(`ws conn opened to ${ws.remoteAddress}`)
+      // Mount
       ws.data.count = 0
       ws.data.timerHandles = []
+      // Initial Render
       ws.sendText(renderToString(<Counter count={ws.data.count} globalCount={state.globalCount} />))
+      // Timer -> State Change -> Rerender
       ws.data.timerHandles.push(setInterval(() => {
         ws.data.count += 1
         ws.sendText(renderToString(<Counter count={ws.data.count} globalCount={state.globalCount} />))
       }, 1000))
+      // Topic subscriber -> Rerender
       ws.data.onchange = () => {
         ws.sendText(renderToString(<Counter count={ws.data.count} globalCount={state.globalCount} />))
       }
       pubsub.on('change', ws.data.onchange)
     },
     close(ws, code, reason) {
+      // Finalize everything we opened/subscribed
       pubsub.off('change', ws.data.onchange)
       ws.data.timerHandles.forEach(clearInterval)
     },
     message(ws, message) {
+      // State change -> Rerender
       if (message === 'inc100') {
         ws.data.count += 100
         ws.sendText(renderToString(<Counter count={ws.data.count} globalCount={state.globalCount} />))
       }
+      // State change -> Rerender -> Publish
       if (message === 'global-inc') {
         state.globalCount += 1
         const output = renderToString(<Counter count={ws.data.count} globalCount={state.globalCount} />)
