@@ -13,6 +13,8 @@ const live = ({dispatch, mount, render}: LiveApp) => {
     count: 0
   }
 
+  // TODO: Proxy only goes one level deep, so nested objects within aren't "seen"
+  //    to be updated
   const createRenderAfterChangeProxy = (ws: ServerWebSocket, watched: object) => new Proxy(watched, {
     set(obj, prop, value) {
       obj[prop] = value
@@ -120,7 +122,14 @@ const server = Bun.serve(
       addTimer(1000, 'tick')
     },
     render: ({local, shared}) => {
-      return <Counter count={local.count} globalCount={shared.count} />
+      return (
+        <div>
+          <CounterPart label='Local Count' count={local.count} />
+          <CounterPart label='Global Count' count={shared.count} />
+          <button type='button' data-stl-action='inc100'>Local Inc 100</button>
+          <button type='button' data-stl-action='global-inc'>Global Inc 1</button>
+        </div>
+      )
     },
     dispatch: ({local, message, shared}) => {
       switch (message) {
@@ -139,17 +148,6 @@ const server = Bun.serve(
     },
   })
 )
-
-const Counter = ({count, globalCount}: {count: number, globalCount: number}) => {
-  return (
-    <div>
-      <CounterPart label='Local Count' count={count} />
-      <CounterPart label='Global Count' count={globalCount} />
-      <button type='button' data-stl-action='inc100'>Local Inc 100</button>
-      <button type='button' data-stl-action='global-inc'>Global Inc 1</button>
-    </div>
-  )
-}
 
 const CounterPart = ({count, label}: {count: number, label: string}) => {
   return (
