@@ -3,6 +3,8 @@ import { randomUUID } from 'node:crypto'
 
 type RandomUUID = ReturnType<typeof randomUUID>
 
+// BUG: Determining a winner is inconsistent
+
 Bun.serve(live({
   local: {
     playerId: null as RandomUUID | null
@@ -100,7 +102,7 @@ const GridComponent = ({shared}: any) => {
       {
         col.map((row, rowIndex) => {
           return (
-            <div data-stl-action='move' data-stl-payload-col={colIndex} data-stl-payload-row={rowIndex} key={`${colIndex}-${rowIndex}`} style={{border: '1px solid black', width: '80px', height: '80px', textAlign: 'center'}}>
+            <div data-stl-action='move' data-stl-payload-col={colIndex} data-stl-payload-row={rowIndex} key={`${colIndex}-${rowIndex}`} style={{border: '1px solid black', width: '80px', height: '80px', textAlign: 'center', fontSize: 72, padding: 8}}>
               {row}
             </div>
           )
