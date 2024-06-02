@@ -15,7 +15,7 @@ const live = ({dispatch, mount, render}: LiveApp) => {
 
   // TODO: Proxy only goes one level deep, so nested objects within aren't "seen"
   //    to be updated
-  const createRenderAfterChangeProxy = (ws: ServerWebSocket, watched: object) => new Proxy(watched, {
+  const createRenderAfterChangeProxy = (ws: ServerWebSocket, watched: object, afterHook?: () => void) => new Proxy(watched, {
     set(obj, prop, value) {
       obj[prop] = value
 
@@ -23,23 +23,17 @@ const live = ({dispatch, mount, render}: LiveApp) => {
         local: ws.data.local,
         shared: ws.data.shared,
       })
+
+      if (afterHook) {
+        afterHook()
+      }
 
       return true
     },
   })
 
-  const createPublishAndRenderAfterChangeProxy = (ws: ServerWebSocket, watched: object) => new Proxy(watched, {
-    set(obj, prop, value) {
-      obj[prop] = value
-
-      frameworkRender(ws, {
-        local: ws.data.local,
-        shared: ws.data.shared,
-      })
-      pubsub.emit('multiplayer')
-
-      return true
-    },
+  const createPublishAndRenderAfterChangeProxy = (ws: ServerWebSocket, watched: object) => createRenderAfterChangeProxy(ws, watched, () => {
+    pubsub.emit('multiplayer')
   })
 
   const pubsub = new EventEmitter()
