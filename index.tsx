@@ -96,3 +96,27 @@ const CounterPart = ({count, label}: {count: number, label: string}) => {
 
 console.log(`Server running at http://${server.hostname}:${server.port}`)
 
+// Prototype DSL
+// run({
+//   mount: () => {
+//     local.count = 8
+//     addTimer(1000, 'tick')
+//   },
+//   render: () => {
+//     <Counter count={local.count} globalCount={shared.globalCount} />
+//   },
+//   dispatch: () => {
+//     switch (message) {
+//       case 'tick':
+//         local.count += 1
+//       case 'inc100':
+//         local.count += 100
+//         break
+//       case 'global-inc':
+//         shared.count += 1
+//         break
+//       default:
+//         break
+//     }
+//   },
+// })
