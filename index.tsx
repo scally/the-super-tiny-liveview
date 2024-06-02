@@ -1,5 +1,6 @@
 import { renderToString } from 'react-dom/server'
 import { EventEmitter } from 'node:events'
+import type { ServerWebSocket } from 'bun'
 
 const appendIndex = (path: string) =>
   path.endsWith('/') ? path.concat('index.html') : path
@@ -10,12 +11,21 @@ const state = {
   globalCount: 0
 }
 
-// Could we add a proxy around per-socket + global state
-// So that we automatically re-render when they change?
+interface WSData {
+  count: number
+
+  shared: typeof state,
+
+  timerHandles: Timer[]
+  onchange: (...args: any[]) => void
+}
 
 const server = Bun.serve({
   fetch(req, svr) {
-    if (svr.upgrade(req, {data: {}})) {
+    if (svr.upgrade(req, {data: {
+      count: 0,
+      timerHandles: new Array<Timer>,
+    } as WSData})) {
       return
     }
 
@@ -26,21 +36,19 @@ const server = Bun.serve({
   },
   websocket: {
     perMessageDeflate: true,
-    async open(ws) {
+    async open(ws: ServerWebSocket<WSData>) {
       console.log(`ws conn opened to ${ws.remoteAddress}`)
-      // Mount
-      ws.data.count = 0
-      ws.data.timerHandles = []
+      ws.data.shared = state
       // Initial Render
-      ws.sendText(renderToString(<Counter count={ws.data.count} globalCount={state.globalCount} />))
+      ws.sendText(renderToString(<Counter count={ws.data.count} globalCount={ws.data.shared.globalCount} />))
       // Timer -> State Change -> Rerender
       ws.data.timerHandles.push(setInterval(() => {
         ws.data.count += 1
-        ws.sendText(renderToString(<Counter count={ws.data.count} globalCount={state.globalCount} />))
+        ws.sendText(renderToString(<Counter count={ws.data.count} globalCount={ws.data.shared.globalCount} />))
       }, 1000))
       // Topic subscriber -> Rerender
       ws.data.onchange = () => {
-        ws.sendText(renderToString(<Counter count={ws.data.count} globalCount={state.globalCount} />))
+        ws.sendText(renderToString(<Counter count={ws.data.count} globalCount={ws.data.shared.globalCount} />))
       }
       pubsub.on('change', ws.data.onchange)
     },
@@ -53,12 +61,12 @@ const server = Bun.serve({
       // State change -> Rerender
       if (message === 'inc100') {
         ws.data.count += 100
-        ws.sendText(renderToString(<Counter count={ws.data.count} globalCount={state.globalCount} />))
+        ws.sendText(renderToString(<Counter count={ws.data.count} globalCount={ws.data.shared.globalCount} />))
       }
       // State change -> Rerender -> Publish
       if (message === 'global-inc') {
-        state.globalCount += 1
-        const output = renderToString(<Counter count={ws.data.count} globalCount={state.globalCount} />)
+        ws.data.shared.globalCount += 1
+        const output = renderToString(<Counter count={ws.data.count} globalCount={ws.data.shared.globalCount} />)
         pubsub.emit('change')
         ws.sendText(output)
       }
@@ -87,3 +95,4 @@ const CounterPart = ({count, label}: {count: number, label: string}) => {
 }
 
 console.log(`Server running at http://${server.hostname}:${server.port}`)
+
