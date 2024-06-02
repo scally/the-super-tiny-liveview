@@ -1,4 +1,5 @@
 [X] Change protocol for actions to accomodate payload
+[] Hot reload?
 [] Payload typing is awkward
 [] Form submission
 [] Session persistence on reload
