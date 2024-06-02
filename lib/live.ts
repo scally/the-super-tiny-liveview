@@ -3,10 +3,10 @@ import { EventEmitter } from 'node:events'
 import type { Serve, ServerWebSocket } from 'bun'
 
 interface LiveApp<TLocal, TShared> {
-  dispatch: ({local, message, shared}: {local: TLocal, message: string, shared: TShared}) => void
-  mount: ({addTimer, local, shared}: {addTimer: (interval : number, message: string) => void, local: TLocal, shared: TShared}) => void
-  render: ({local, shared}: {local: TLocal, shared: TShared}) => JSX.Element
-  shared: TShared
+  dispatch?: ({local, message, shared}: {local: TLocal, message: string, shared: TShared}) => void
+  mount?: ({addTimer, local, shared}: {addTimer: (interval : number, message: string) => void, local: TLocal, shared: TShared}) => void
+  render: ({local, shared}: {local: TLocal, shared: TShared}) => JSX.Element | null
+  shared?: TShared
 }
 
 interface LiveData<TLocal> {
@@ -15,7 +15,11 @@ interface LiveData<TLocal> {
   onMultiplayer: (...args: any[]) => void
 }
 
-export const live = <TLocal extends {}, TShared extends {}>({dispatch, mount, render, shared}: LiveApp<TLocal, TShared>) => {
+export const live = <TLocal extends {}, TShared extends {}>({
+  dispatch = () => {}, 
+  mount = () => {}, 
+  render, 
+  shared = {} as TShared}: LiveApp<TLocal, TShared>) => {
   const createRenderAfterChangeProxy = (ws: ServerWebSocket<LiveData<TLocal>>, watched: object) => 
     addDeepSetterHook(watched, () => {
       frameworkRender(ws)
