@@ -2,34 +2,29 @@ import { renderToString } from 'react-dom/server'
 import { EventEmitter } from 'node:events'
 import type { Serve, ServerWebSocket } from 'bun'
 
-interface LiveApp<TLocal = {}, TShared = {}> {
+interface LiveApp<TLocal, TShared> {
   dispatch: ({local, message, shared}: {local: TLocal, message: string, shared: TShared}) => void
   mount: ({addTimer, local, shared}: {addTimer: Function, local: TLocal, shared: TShared}) => void
   render: ({local, shared}: {local: TLocal, shared: TShared}) => JSX.Element
+  shared: TShared
 }
 
-const live = ({dispatch, mount, render}: LiveApp) => {
-  const state = {
-    count: 0
-  }
-
+const live = <TLocal, TShared>({dispatch, mount, render, shared}: LiveApp<TLocal, TShared>) => {
   const createRenderAfterChangeProxy = (ws: ServerWebSocket, watched: object) => 
     addDeepSetterHook(watched, () => {
-      frameworkRender(ws, {
-        local: ws.data.local,
-        shared: ws.data.shared,
-      })
+      frameworkRender(ws)
     })
 
   const createPublishAndRenderAfterChangeProxy = (ws: ServerWebSocket, watched: object) =>
     addDeepSetterHook(watched, () => {
-      frameworkRender(ws, {
-        local: ws.data.local,
-        shared: ws.data.shared,
-      })
+      frameworkRender(ws)
       pubsub.emit('multiplayer')
     })
 
+  // HACK: We are likely over-calling `afterSet` here X times,
+  //  once for each level of nesting. 
+  //  Should create an inner function in here that ensures it's called once
+  //  per branch, perhaps
   const addDeepSetterHook = (o: object, afterSet: Function) => {
     return new Proxy(o, {
       set(obj, prop, value) {
@@ -48,8 +43,8 @@ const live = ({dispatch, mount, render}: LiveApp) => {
 
   const pubsub = new EventEmitter()
 
-  const frameworkRender = (ws: ServerWebSocket, {local, shared}: any) => {
-    ws.sendText(renderToString(render({local, shared})))
+  const frameworkRender = (ws: ServerWebSocket) => {
+    ws.sendText(renderToString(render({local: ws.data.local, shared})))
   }
 
   const addTimer = (ws: ServerWebSocket, interval: number, message: string) => {
@@ -58,12 +53,9 @@ const live = ({dispatch, mount, render}: LiveApp) => {
         dispatch({
           local: ws.data.local,
           message,
-          shared: ws.data.shared,
+          shared,
         })
-        frameworkRender(ws, {
-          local: ws.data.local,
-          shared: ws.data.shared,
-        })
+        frameworkRender(ws)
       }, interval)
     )
   }
@@ -72,7 +64,7 @@ const live = ({dispatch, mount, render}: LiveApp) => {
     fetch(req, svr) {
       if (svr.upgrade(req, {data: {
         local: {},
-        shared: state,
+        shared,
         timerHandles: new Array<Timer>(),
       }})) {
         return
@@ -94,13 +86,10 @@ const live = ({dispatch, mount, render}: LiveApp) => {
             addTimer(ws, interval, message)
           },
           local: createRenderAfterChangeProxy(ws, ws.data.local),
-          shared: createPublishAndRenderAfterChangeProxy(ws, ws.data.shared),
+          shared: createPublishAndRenderAfterChangeProxy(ws, shared),
         })
         ws.data.onMultiplayer = () => {
-          frameworkRender(ws, {
-            local: ws.data.local,
-            shared: ws.data.shared,
-          })
+          frameworkRender(ws)
         }
         pubsub.on('multiplayer', ws.data.onMultiplayer)
       },
@@ -111,7 +100,7 @@ const live = ({dispatch, mount, render}: LiveApp) => {
       message(ws, message) {
         dispatch({
           local: createRenderAfterChangeProxy(ws, ws.data.local),
-          shared: createPublishAndRenderAfterChangeProxy(ws, ws.data.shared),
+          shared: createPublishAndRenderAfterChangeProxy(ws, shared),
           message: String(message),
         })
       },
@@ -119,8 +108,20 @@ const live = ({dispatch, mount, render}: LiveApp) => {
   } satisfies Serve
 }
 
+interface AppLocal {
+  nums: number[]
+  count: number
+}
+
+interface AppShared {
+  count: number
+}
+
 const server = Bun.serve(
-  live({
+  live<AppLocal, AppShared>({
+    shared: {
+      count: 0,
+    },
     mount: ({addTimer, local, shared}) => {
       local.count = 8
       local.nums = []
