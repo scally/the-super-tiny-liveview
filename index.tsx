@@ -1,22 +1,13 @@
 import { live } from "./lib/live"
 
-interface AppLocal {
-  nums: number[]
-  count: number
-}
-
-interface AppShared {
-  count: number
-}
-
 const server = Bun.serve(
-  live<AppLocal, AppShared>({
+  live({
     shared: {
       count: 0,
     },
     local: {
       count: 0,
-      nums: []
+      nums: Array<number>()
     },
     mount: ({addTimer, local}) => {
       local.count = 8
