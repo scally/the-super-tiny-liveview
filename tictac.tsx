@@ -65,7 +65,7 @@ Bun.serve(live({
   },
   render({local, shared}) {
     return (
-      <div style={{display: 'flex', padding: '40px', flexDirection: 'column', gap: '20px'}}>
+      <div style={{display: 'flex', padding: '40px', flexDirection: 'column', gap: '40px'}}>
         {
           localPlayerName(shared.players, local.playerId) === 'X' ? <div>playing as X</div> : null
         }
