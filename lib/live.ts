@@ -6,6 +6,7 @@ interface LiveApp<TLocal, TShared> {
   dispatch?: ({local, message, shared}: {local: TLocal, message: string, shared: TShared}) => void
   mount?: ({addTimer, local, shared}: {addTimer: (interval : number, message: string) => void, local: TLocal, shared: TShared}) => void
   render: ({local, shared}: {local: TLocal, shared: TShared}) => JSX.Element | null
+  local?: TLocal
   shared?: TShared
 }
 
@@ -19,7 +20,9 @@ export const live = <TLocal extends {}, TShared extends {}>({
   dispatch = () => {}, 
   mount = () => {}, 
   render, 
-  shared = {} as TShared}: LiveApp<TLocal, TShared>) => {
+  shared = {} as TShared,
+  local = {} as TLocal,
+}: LiveApp<TLocal, TShared>) => {
   const createRenderAfterChangeProxy = (ws: ServerWebSocket<LiveData<TLocal>>, watched: object) => 
     addDeepSetterHook(watched, () => {
       frameworkRender(ws)
@@ -73,7 +76,7 @@ export const live = <TLocal extends {}, TShared extends {}>({
   return {
     fetch(req, svr) {
       if (svr.upgrade(req, {data: {
-        local: {},
+        local: structuredClone(local),
         timerHandles: new Array<Timer>(),
       }})) {
         return
