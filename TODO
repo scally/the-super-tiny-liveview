@@ -1,3 +1,4 @@
 [X] Change protocol for actions to accomodate payload
+[] Payload typing is awkward
 [] Form submission
 [] Session persistence on reload
