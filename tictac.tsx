@@ -4,7 +4,6 @@ import { randomUUID } from 'node:crypto'
 type RandomUUID = ReturnType<typeof randomUUID>
 
 Bun.serve(live({
-  debug: true,
   local: {
     playerId: null as RandomUUID | null
   },
@@ -30,7 +29,8 @@ Bun.serve(live({
           // It's not your move
           return
         }
-        if (shared.moves.some(({row, col}) => row === message.payload?.row && col === message.payload?.col)) {
+        const {row: payloadRow, col: payloadCol} = message.payload as any
+        if (shared.moves.some(({row, col}) => row === payloadRow && col === payloadCol)) {
           // This spot has already been played
           return
         }
@@ -45,6 +45,9 @@ Bun.serve(live({
         shared.players = []
         break
       case 'join':
+        if (!local.playerId) {
+          return
+        }
         switch (shared.players.length) {
           case 0:
             shared.players.push(local.playerId)
@@ -114,8 +117,11 @@ interface Move {
 
 type Grid = ('X' | 'O' | null )[][]
 
-const localPlayerName = (players: ReturnType<typeof randomUUID>[], localId: ReturnType<typeof randomUUID>) => 
-  players.indexOf(localId) === 0 ? 'X' : players.indexOf(localId) === 1 ? 'O' : null
+const localPlayerName = (players: ReturnType<typeof randomUUID>[], localId: ReturnType<typeof randomUUID> | null) => {
+  if (!localId) return
+
+  return players.indexOf(localId) === 0 ? 'X' : players.indexOf(localId) === 1 ? 'O' : null
+}
 
 const movesToGrid = (moves: Move[]): Grid => {
   return moves.reduce((prev, {row, col}, index) => {
