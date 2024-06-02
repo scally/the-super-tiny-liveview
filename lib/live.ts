@@ -15,8 +15,9 @@ interface LiveApp<TLocal, TShared> {
   shared?: TShared
 }
 
-interface LiveData<TLocal> {
+interface LiveData<TLocal, TShared> {
   local: TLocal
+  shared: TShared
   timerHandles: Timer[]
   onMultiplayer: (...args: any[]) => void
 }
@@ -28,12 +29,12 @@ export const live = <TLocal extends {}, TShared extends {}>({
   shared = {} as TShared,
   local = {} as TLocal,
 }: LiveApp<TLocal, TShared>) => {
-  const createRenderAfterChangeProxy = (ws: ServerWebSocket<LiveData<TLocal>>, watched: object) => 
+  const createRenderAfterChangeProxy = (ws: ServerWebSocket<LiveData<TLocal, TShared>>, watched: object) => 
     addDeepSetterHook(watched, () => {
       frameworkRender(ws)
     })
 
-  const createPublishAndRenderAfterChangeProxy = (ws: ServerWebSocket<LiveData<TLocal>>, watched: object) =>
+  const createPublishAndRenderAfterChangeProxy = (ws: ServerWebSocket<LiveData<TLocal, TShared>>, watched: object) =>
     addDeepSetterHook(watched, () => {
       frameworkRender(ws)
       pubsub.emit('multiplayer')
@@ -44,6 +45,12 @@ export const live = <TLocal extends {}, TShared extends {}>({
   //  Should create an inner function in here that ensures it's called once
   //  per branch, perhaps
   const addDeepSetterHook = (o: any, afterSet: Function) => {
+    for (const attrName in o) {
+      if (!o[attrName] || typeof o[attrName] !== 'object') continue
+
+      o[attrName] = addDeepSetterHook(o[attrName], afterSet)
+    }
+
     return new Proxy(o, {
       set(obj, prop, value) {
         if (value && typeof value === 'object') {
@@ -61,17 +68,17 @@ export const live = <TLocal extends {}, TShared extends {}>({
 
   const pubsub = new EventEmitter()
 
-  const frameworkRender = (ws: ServerWebSocket<LiveData<TLocal>>) => {
+  const frameworkRender = (ws: ServerWebSocket<LiveData<TLocal, TShared>>) => {
     ws.sendText(renderToString(render({local: ws.data.local, shared})))
   }
 
-  const addTimer = (ws: ServerWebSocket<LiveData<TLocal>>, interval: number, message: FSA) => {
+  const addTimer = (ws: ServerWebSocket<LiveData<TLocal, TShared>>, interval: number, message: FSA) => {
     ws.data.timerHandles.push(
       setInterval(() => {
         dispatch({
           local: ws.data.local,
           message,
-          shared,
+          shared: ws.data.shared,
         })
         frameworkRender(ws)
       }, interval)
@@ -81,7 +88,6 @@ export const live = <TLocal extends {}, TShared extends {}>({
   return {
     fetch(req, svr) {
       if (svr.upgrade(req, {data: {
-        local: structuredClone(local),
         timerHandles: new Array<Timer>(),
       }})) {
         return
@@ -98,12 +104,14 @@ export const live = <TLocal extends {}, TShared extends {}>({
     websocket: {
       perMessageDeflate: true,
       open(ws) {
+        ws.data.local = createRenderAfterChangeProxy(ws, structuredClone(local))
+        ws.data.shared = createPublishAndRenderAfterChangeProxy(ws, shared)
         mount({
           addTimer: (interval: number, message: FSA) => {
             addTimer(ws, interval, message)
           },
-          local: createRenderAfterChangeProxy(ws, ws.data.local),
-          shared: createPublishAndRenderAfterChangeProxy(ws, shared),
+          local: ws.data.local,
+          shared: ws.data.shared,
         })
         ws.data.onMultiplayer = () => {
           frameworkRender(ws)
@@ -117,11 +125,11 @@ export const live = <TLocal extends {}, TShared extends {}>({
       },
       message(ws, message) {
         dispatch({
-          local: createRenderAfterChangeProxy(ws, ws.data.local),
-          shared: createPublishAndRenderAfterChangeProxy(ws, shared),
+          local: ws.data.local,
+          shared: ws.data.shared,
           message: JSON.parse(String(message)) as FSA,
         })
       },
     }
-  } satisfies Serve<LiveData<TLocal>>
+  } satisfies Serve<LiveData<TLocal, TShared>>
 }
