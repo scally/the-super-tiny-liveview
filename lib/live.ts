@@ -46,7 +46,7 @@ export const live = <TLocal extends {}, TShared extends {}>({
   const addDeepSetterHook = (o: any, afterSet: Function) => {
     return new Proxy(o, {
       set(obj, prop, value) {
-        if (typeof value === 'object') {
+        if (value && typeof value === 'object') {
           obj[prop] = addDeepSetterHook(value, afterSet)
         } else {
           obj[prop] = value
