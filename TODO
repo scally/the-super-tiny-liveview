@@ -1,2 +1,3 @@
 [X] Change protocol for actions to accomodate payload
 [] Form submission
+[] Session persistence on reload
