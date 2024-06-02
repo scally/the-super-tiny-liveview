@@ -2,9 +2,9 @@ import { renderToString } from 'react-dom/server'
 import { EventEmitter } from 'node:events'
 import type { Serve, ServerWebSocket } from 'bun'
 
-interface FSA {
+interface FSA<TPayload = {}> {
   type: string
-  payload?: object
+  payload?: TPayload
 }
 
 interface LiveApp<TLocal, TShared> {
