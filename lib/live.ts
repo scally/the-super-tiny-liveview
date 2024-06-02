@@ -13,6 +13,7 @@ interface LiveApp<TLocal, TShared> {
   render: ({local, shared}: {local: TLocal, shared: TShared}) => JSX.Element | null
   local?: TLocal
   shared?: TShared
+  debug?: boolean
 }
 
 interface LiveData<TLocal, TShared> {
@@ -28,6 +29,7 @@ export const live = <TLocal extends {}, TShared extends {}>({
   render, 
   shared = {} as TShared,
   local = {} as TLocal,
+  debug = false,
 }: LiveApp<TLocal, TShared>) => {
   const createRenderAfterChangeProxy = (ws: ServerWebSocket<LiveData<TLocal, TShared>>, watched: object) => 
     addDeepSetterHook(watched, () => {
@@ -129,6 +131,9 @@ export const live = <TLocal extends {}, TShared extends {}>({
           shared: ws.data.shared,
           message: JSON.parse(String(message)) as FSA,
         })
+        if (debug) {
+          console.log({message, local, shared})
+        }
       },
     }
   } satisfies Serve<LiveData<TLocal, TShared>>
