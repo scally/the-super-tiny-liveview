@@ -101,6 +101,7 @@ export const live = <TLocal extends {}, TShared extends {}>({
           frameworkRender(ws)
         }
         pubsub.on('multiplayer', ws.data.onMultiplayer)
+        frameworkRender(ws)
       },
       close(ws) {
         pubsub.off('multiplayer', ws.data.onMultiplayer)
