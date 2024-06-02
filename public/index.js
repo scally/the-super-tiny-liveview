@@ -2,13 +2,24 @@ import morphdom from 'morphdom'
 
 const ws = new WebSocket('/')
 ws.addEventListener('open', () => {
-  // Could be a DOM listener instead?
-  // Send action names up to server
+  // TODO: Could be a DOM listener instead?
+  // Send action up to server
   document.querySelector('[data-stl-container]').addEventListener('click', (e) => {
     const action = e.target.getAttribute('data-stl-action')
     if (!action) return
 
-    ws.send(action)
+    const payload = e.target.getAttributeNames().filter(attr => attr.startsWith('data-stl-payload')).reduce((prev, curr) => {
+      const newKey = curr.replace('data-stl-payload-', '')
+      prev[newKey] = e.target.getAttribute(curr)
+      return prev
+    }, {})
+
+    const message = JSON.stringify({
+      type: action,
+      payload, 
+    })
+
+    ws.send(message)
   })
 })
 

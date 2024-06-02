@@ -12,8 +12,12 @@ const server = Bun.serve(
     mount: ({addTimer, local}) => {
       local.count = 8
       local.nums = [17]
-      addTimer(1000, 'tick')
-      addTimer(2000, 'tick2')
+      addTimer(1000, {
+        type: 'tick'
+      })
+      addTimer(2000, {
+        type: 'tick2'
+      })
     },
     render: ({local, shared}) => {
       return (
@@ -29,7 +33,7 @@ const server = Bun.serve(
       )
     },
     dispatch: ({local, message, shared}) => {
-      switch (message) {
+      switch (message.type) {
         case 'tick':
           local.count += 1
           break

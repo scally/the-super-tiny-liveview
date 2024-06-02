@@ -2,9 +2,14 @@ import { renderToString } from 'react-dom/server'
 import { EventEmitter } from 'node:events'
 import type { Serve, ServerWebSocket } from 'bun'
 
+interface FSA {
+  type: string
+  payload?: object
+}
+
 interface LiveApp<TLocal, TShared> {
-  dispatch?: ({local, message, shared}: {local: TLocal, message: string, shared: TShared}) => void
-  mount?: ({addTimer, local, shared}: {addTimer: (interval : number, message: string) => void, local: TLocal, shared: TShared}) => void
+  dispatch?: ({local, message, shared}: {local: TLocal, message: FSA, shared: TShared}) => void
+  mount?: ({addTimer, local, shared}: {addTimer: (interval : number, message: FSA) => void, local: TLocal, shared: TShared}) => void
   render: ({local, shared}: {local: TLocal, shared: TShared}) => JSX.Element | null
   local?: TLocal
   shared?: TShared
@@ -60,7 +65,7 @@ export const live = <TLocal extends {}, TShared extends {}>({
     ws.sendText(renderToString(render({local: ws.data.local, shared})))
   }
 
-  const addTimer = (ws: ServerWebSocket<LiveData<TLocal>>, interval: number, message: string) => {
+  const addTimer = (ws: ServerWebSocket<LiveData<TLocal>>, interval: number, message: FSA) => {
     ws.data.timerHandles.push(
       setInterval(() => {
         dispatch({
@@ -94,7 +99,7 @@ export const live = <TLocal extends {}, TShared extends {}>({
       perMessageDeflate: true,
       open(ws) {
         mount({
-          addTimer: (interval: number, message: string) => {
+          addTimer: (interval: number, message: FSA) => {
             addTimer(ws, interval, message)
           },
           local: createRenderAfterChangeProxy(ws, ws.data.local),
@@ -114,7 +119,7 @@ export const live = <TLocal extends {}, TShared extends {}>({
         dispatch({
           local: createRenderAfterChangeProxy(ws, ws.data.local),
           shared: createPublishAndRenderAfterChangeProxy(ws, shared),
-          message: String(message),
+          message: JSON.parse(String(message)) as FSA,
         })
       },
     }
