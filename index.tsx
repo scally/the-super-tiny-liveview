@@ -4,18 +4,24 @@ import type { Serve, ServerWebSocket } from 'bun'
 
 interface LiveApp<TLocal, TShared> {
   dispatch: ({local, message, shared}: {local: TLocal, message: string, shared: TShared}) => void
-  mount: ({addTimer, local, shared}: {addTimer: Function, local: TLocal, shared: TShared}) => void
+  mount: ({addTimer, local, shared}: {addTimer: (interval : number, message: string) => void, local: TLocal, shared: TShared}) => void
   render: ({local, shared}: {local: TLocal, shared: TShared}) => JSX.Element
   shared: TShared
 }
 
-const live = <TLocal, TShared>({dispatch, mount, render, shared}: LiveApp<TLocal, TShared>) => {
-  const createRenderAfterChangeProxy = (ws: ServerWebSocket, watched: object) => 
+interface LiveData<TLocal> {
+  local: TLocal
+  timerHandles: Timer[]
+  onMultiplayer: (...args: any[]) => void
+}
+
+const live = <TLocal extends {}, TShared extends {}>({dispatch, mount, render, shared}: LiveApp<TLocal, TShared>) => {
+  const createRenderAfterChangeProxy = (ws: ServerWebSocket<LiveData<TLocal>>, watched: object) => 
     addDeepSetterHook(watched, () => {
       frameworkRender(ws)
     })
 
-  const createPublishAndRenderAfterChangeProxy = (ws: ServerWebSocket, watched: object) =>
+  const createPublishAndRenderAfterChangeProxy = (ws: ServerWebSocket<LiveData<TLocal>>, watched: object) =>
     addDeepSetterHook(watched, () => {
       frameworkRender(ws)
       pubsub.emit('multiplayer')
@@ -25,7 +31,7 @@ const live = <TLocal, TShared>({dispatch, mount, render, shared}: LiveApp<TLocal
   //  once for each level of nesting. 
   //  Should create an inner function in here that ensures it's called once
   //  per branch, perhaps
-  const addDeepSetterHook = (o: object, afterSet: Function) => {
+  const addDeepSetterHook = (o: any, afterSet: Function) => {
     return new Proxy(o, {
       set(obj, prop, value) {
         if (typeof value === 'object') {
@@ -43,11 +49,11 @@ const live = <TLocal, TShared>({dispatch, mount, render, shared}: LiveApp<TLocal
 
   const pubsub = new EventEmitter()
 
-  const frameworkRender = (ws: ServerWebSocket) => {
+  const frameworkRender = (ws: ServerWebSocket<LiveData<TLocal>>) => {
     ws.sendText(renderToString(render({local: ws.data.local, shared})))
   }
 
-  const addTimer = (ws: ServerWebSocket, interval: number, message: string) => {
+  const addTimer = (ws: ServerWebSocket<LiveData<TLocal>>, interval: number, message: string) => {
     ws.data.timerHandles.push(
       setInterval(() => {
         dispatch({
@@ -64,7 +70,6 @@ const live = <TLocal, TShared>({dispatch, mount, render, shared}: LiveApp<TLocal
     fetch(req, svr) {
       if (svr.upgrade(req, {data: {
         local: {},
-        shared,
         timerHandles: new Array<Timer>(),
       }})) {
         return
@@ -105,7 +110,7 @@ const live = <TLocal, TShared>({dispatch, mount, render, shared}: LiveApp<TLocal
         })
       },
     }
-  } satisfies Serve
+  } satisfies Serve<LiveData<TLocal>>
 }
 
 interface AppLocal {
@@ -122,7 +127,7 @@ const server = Bun.serve(
     shared: {
       count: 0,
     },
-    mount: ({addTimer, local, shared}) => {
+    mount: ({addTimer, local}) => {
       local.count = 8
       local.nums = []
       addTimer(1000, 'tick')
