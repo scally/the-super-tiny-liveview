@@ -13,28 +13,38 @@ const live = ({dispatch, mount, render}: LiveApp) => {
     count: 0
   }
 
-  // TODO: Proxy only goes one level deep, so nested objects within aren't "seen"
-  //    to be updated
-  const createRenderAfterChangeProxy = (ws: ServerWebSocket, watched: object, afterHook?: () => void) => new Proxy(watched, {
-    set(obj, prop, value) {
-      obj[prop] = value
-
+  const createRenderAfterChangeProxy = (ws: ServerWebSocket, watched: object) => 
+    addDeepSetterHook(watched, () => {
       frameworkRender(ws, {
         local: ws.data.local,
         shared: ws.data.shared,
       })
+    })
 
-      if (afterHook) {
-        afterHook()
+  const createPublishAndRenderAfterChangeProxy = (ws: ServerWebSocket, watched: object) =>
+    addDeepSetterHook(watched, () => {
+      frameworkRender(ws, {
+        local: ws.data.local,
+        shared: ws.data.shared,
+      })
+      pubsub.emit('multiplayer')
+    })
+
+  const addDeepSetterHook = (o: object, afterSet: Function) => {
+    return new Proxy(o, {
+      set(obj, prop, value) {
+        if (typeof value === 'object') {
+          obj[prop] = addDeepSetterHook(value, afterSet)
+        } else {
+          obj[prop] = value
+        }
+
+        afterSet()
+
+        return true
       }
-
-      return true
-    },
-  })
-
-  const createPublishAndRenderAfterChangeProxy = (ws: ServerWebSocket, watched: object) => createRenderAfterChangeProxy(ws, watched, () => {
-    pubsub.emit('multiplayer')
-  })
+    })
+  }
 
   const pubsub = new EventEmitter()
 
@@ -113,13 +123,18 @@ const server = Bun.serve(
   live({
     mount: ({addTimer, local, shared}) => {
       local.count = 8
+      local.nums = []
       addTimer(1000, 'tick')
+      addTimer(2000, 'tick2')
     },
     render: ({local, shared}) => {
       return (
         <div>
           <CounterPart label='Local Count' count={local.count} />
           <CounterPart label='Global Count' count={shared.count} />
+          {
+            local.nums?.map(n => <div key={n}>{n}</div>)
+          }
           <button type='button' data-stl-action='inc100'>Local Inc 100</button>
           <button type='button' data-stl-action='global-inc'>Global Inc 1</button>
         </div>
@@ -129,6 +144,9 @@ const server = Bun.serve(
       switch (message) {
         case 'tick':
           local.count += 1
+          break
+        case 'tick2':
+          local.nums.push(local.nums.length)
           break
         case 'inc100':
           local.count += 100
