@@ -1,81 +1,144 @@
 import { renderToString } from 'react-dom/server'
 import { EventEmitter } from 'node:events'
-import type { ServerWebSocket } from 'bun'
+import type { Serve, ServerWebSocket } from 'bun'
 
-const appendIndex = (path: string) =>
-  path.endsWith('/') ? path.concat('index.html') : path
-
-const pubsub = new EventEmitter()
-
-const state = {
-  globalCount: 0
+interface LiveApp<TLocal = {}, TShared = {}> {
+  dispatch: ({local, message, shared}: {local: TLocal, message: string, shared: TShared}) => void
+  mount: ({addTimer, local, shared}: {addTimer: Function, local: TLocal, shared: TShared}) => void
+  render: ({local, shared}: {local: TLocal, shared: TShared}) => JSX.Element
 }
 
-interface WSData {
-  count: number
+const live = ({dispatch, mount, render}: LiveApp) => {
+  const state = {
+    count: 0
+  }
 
-  shared: typeof state,
+  const createRenderAfterChangeProxy = (ws: ServerWebSocket, watched: object) => new Proxy(watched, {
+    set(obj, prop, value) {
+      obj[prop] = value
 
-  timerHandles: Timer[]
-  onchange: (...args: any[]) => void
-}
+      frameworkRender(ws, {
+        local: ws.data.local,
+        shared: ws.data.shared,
+      })
 
-const server = Bun.serve({
-  fetch(req, svr) {
-    if (svr.upgrade(req, {data: {
-      count: 0,
-      timerHandles: new Array<Timer>,
-    } as WSData})) {
-      return
+      return true
+    },
+  })
+
+  const createPublishAndRenderAfterChangeProxy = (ws: ServerWebSocket, watched: object) => new Proxy(watched, {
+    set(obj, prop, value) {
+      obj[prop] = value
+
+      frameworkRender(ws, {
+        local: ws.data.local,
+        shared: ws.data.shared,
+      })
+      pubsub.emit('multiplayer')
+
+      return true
+    },
+  })
+
+  const pubsub = new EventEmitter()
+
+  const frameworkRender = (ws: ServerWebSocket, {local, shared}: any) => {
+    ws.sendText(renderToString(render({local, shared})))
+  }
+
+  const addTimer = (ws: ServerWebSocket, interval: number, message: string) => {
+    ws.data.timerHandles.push(
+      setInterval(() => {
+        dispatch({
+          local: ws.data.local,
+          message,
+          shared: ws.data.shared,
+        })
+        frameworkRender(ws, {
+          local: ws.data.local,
+          shared: ws.data.shared,
+        })
+      }, interval)
+    )
+  }
+
+  return {
+    fetch(req, svr) {
+      if (svr.upgrade(req, {data: {
+        local: {},
+        shared: state,
+        timerHandles: new Array<Timer>(),
+      }})) {
+        return
+      }
+
+      const appendIndex = (path: string) =>
+        path.endsWith('/') ? path.concat('index.html') : path
+  
+      const { pathname } = new URL(req.url)
+      const publicPathname = appendIndex(pathname)
+      
+      return new Response(Bun.file(`public${publicPathname}`))
+    },
+    websocket: {
+      perMessageDeflate: true,
+      open(ws) {
+        mount({
+          addTimer: (interval: number, message: string) => {
+            addTimer(ws, interval, message)
+          },
+          local: createRenderAfterChangeProxy(ws, ws.data.local),
+          shared: createPublishAndRenderAfterChangeProxy(ws, ws.data.shared),
+        })
+        ws.data.onMultiplayer = () => {
+          frameworkRender(ws, {
+            local: ws.data.local,
+            shared: ws.data.shared,
+          })
+        }
+        pubsub.on('multiplayer', ws.data.onMultiplayer)
+      },
+      close(ws) {
+        pubsub.off('multiplayer', ws.data.onMultiplayer)
+        ws.data.timerHandles.forEach(clearInterval)
+      },
+      message(ws, message) {
+        dispatch({
+          local: createRenderAfterChangeProxy(ws, ws.data.local),
+          shared: createPublishAndRenderAfterChangeProxy(ws, ws.data.shared),
+          message: String(message),
+        })
+      },
     }
+  } satisfies Serve
+}
 
-    const { pathname } = new URL(req.url)
-    const publicPathname = appendIndex(pathname)
-    
-    return new Response(Bun.file(`public${publicPathname}`))
-  },
-  websocket: {
-    perMessageDeflate: true,
-    async open(ws: ServerWebSocket<WSData>) {
-      console.log(`ws conn opened to ${ws.remoteAddress}`)
-      ws.data.shared = state
-      // Initial Render
-      ws.sendText(renderToString(<Counter count={ws.data.count} globalCount={ws.data.shared.globalCount} />))
-      // Timer -> State Change -> Rerender
-      ws.data.timerHandles.push(setInterval(() => {
-        ws.data.count += 1
-        ws.sendText(renderToString(<Counter count={ws.data.count} globalCount={ws.data.shared.globalCount} />))
-      }, 1000))
-      // Topic subscriber -> Rerender
-      ws.data.onchange = () => {
-        ws.sendText(renderToString(<Counter count={ws.data.count} globalCount={ws.data.shared.globalCount} />))
-      }
-      pubsub.on('change', ws.data.onchange)
+const server = Bun.serve(
+  live({
+    mount: ({addTimer, local, shared}) => {
+      local.count = 8
+      addTimer(1000, 'tick')
     },
-    close(ws, code, reason) {
-      // Finalize everything we opened/subscribed
-      pubsub.off('change', ws.data.onchange)
-      ws.data.timerHandles.forEach(clearInterval)
+    render: ({local, shared}) => {
+      return <Counter count={local.count} globalCount={shared.count} />
     },
-    message(ws, message) {
-      // State change -> Rerender
-      if (message === 'inc100') {
-        ws.data.count += 100
-        ws.sendText(renderToString(<Counter count={ws.data.count} globalCount={ws.data.shared.globalCount} />))
-      }
-      // State change -> Rerender -> Publish
-      if (message === 'global-inc') {
-        ws.data.shared.globalCount += 1
-        const output = renderToString(<Counter count={ws.data.count} globalCount={ws.data.shared.globalCount} />)
-        pubsub.emit('change')
-        ws.sendText(output)
+    dispatch: ({local, message, shared}) => {
+      switch (message) {
+        case 'tick':
+          local.count += 1
+          break
+        case 'inc100':
+          local.count += 100
+          break
+        case 'global-inc':
+          shared.count += 1
+          break
+        default:
+          break
       }
     },
-  },
-})
-
-// initial render ->
-// receive action | timer event | pubsub event -> re-render
+  })
+)
 
 const Counter = ({count, globalCount}: {count: number, globalCount: number}) => {
   return (
@@ -95,28 +158,3 @@ const CounterPart = ({count, label}: {count: number, label: string}) => {
 }
 
 console.log(`Server running at http://${server.hostname}:${server.port}`)
-
-// Prototype DSL
-// run({
-//   mount: () => {
-//     local.count = 8
-//     addTimer(1000, 'tick')
-//   },
-//   render: () => {
-//     <Counter count={local.count} globalCount={shared.globalCount} />
-//   },
-//   dispatch: () => {
-//     switch (message) {
-//       case 'tick':
-//         local.count += 1
-//       case 'inc100':
-//         local.count += 100
-//         break
-//       case 'global-inc':
-//         shared.count += 1
-//         break
-//       default:
-//         break
-//     }
-//   },
-// })
