@@ -14,9 +14,13 @@ const server = Bun.serve(
     shared: {
       count: 0,
     },
+    local: {
+      count: 0,
+      nums: []
+    },
     mount: ({addTimer, local}) => {
       local.count = 8
-      local.nums = []
+      local.nums = [17]
       addTimer(1000, 'tick')
       addTimer(2000, 'tick2')
     },
