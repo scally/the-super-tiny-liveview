@@ -1,4 +1,4 @@
-import { live } from "./lib/live"
+import { live } from "../lib/live"
 
 const server = Bun.serve(
   live({

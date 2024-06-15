@@ -43,3 +43,7 @@ live view apps only require a `render` function. you can also supply:
 add this attribute to a clickable DOM element to dispatch an action to your app's `dispatch` function
 
 if you need a more complex payload, add `data-stl-payload-foo='bar'` to add the payload `{foo: bar}` to your action
+
+## Examples
+
+See ./examples

@@ -1,6 +1,6 @@
 {
   "name": "the-super-tiny-liveview",
-  "module": "index.ts",
+  "module": "lib/live.ts",
   "type": "module",
   "devDependencies": {
     "@types/bun": "^1.1.3",
