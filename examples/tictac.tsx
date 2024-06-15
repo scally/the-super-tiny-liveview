@@ -3,7 +3,7 @@ import { randomUUID } from 'node:crypto'
 
 type RandomUUID = ReturnType<typeof randomUUID>
 
-Bun.serve(live({
+const server = Bun.serve(live({
   local: {
     playerId: null as RandomUUID | null
   },
@@ -177,3 +177,5 @@ export const calculateWinnerForGrid = (grid: Grid) => {
 
 export const calculateWinner = (moves: Move[]) =>
   calculateWinnerForGrid(movesToGrid(moves))
+
+console.log(`Server running at http://${server.hostname}:${server.port}`)
