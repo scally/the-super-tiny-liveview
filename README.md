@@ -47,3 +47,5 @@ if you need a more complex payload, add `data-stl-payload-foo='bar'` to add the 
 ## Examples
 
 See ./examples
+
+Run with `bun ./examples/<name>`
