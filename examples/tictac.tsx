@@ -1,4 +1,4 @@
-import { live } from './lib/live'
+import { live } from '../lib/live'
 import { randomUUID } from 'node:crypto'
 
 type RandomUUID = ReturnType<typeof randomUUID>
