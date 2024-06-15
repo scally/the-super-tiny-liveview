@@ -3,7 +3,8 @@
 ☐ Payload typing is awkward
 ☐ Form submission
 ☐ Session persistence on reload
-☐ Fix issue where pushing the proxy to render/dispatch causes issues w/deepEquals
+☐ Fix issue where passing the proxy to render/dispatch causes issues w/deepEquals
+☐ Component library
 
 ✔ integration test websocket code so I can see regressions @done(24-06-13 21:02)
 ✔ Change protocol for actions to accomodate payload @done(24-06-15 14:31)
