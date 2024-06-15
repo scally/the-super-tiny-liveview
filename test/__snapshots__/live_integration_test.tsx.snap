@@ -1,0 +1,8 @@
+// Bun Snapshot v1, https://goo.gl/fbAQLP
+
+exports[`live websocket integration multiplayer works 1`] = `
+[
+  "<div><p>0</p><p>0</p><button type="button" data-stl-action="inc-local">inc local</button><button type="button" data-stl-action="inc-shared">inc shared</button></div>",
+  "<div><p>0</p><p>1</p><button type="button" data-stl-action="inc-local">inc local</button><button type="button" data-stl-action="inc-shared">inc shared</button></div>",
+]
+`;
