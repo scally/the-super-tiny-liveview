@@ -1,5 +1,6 @@
-[X] Change protocol for actions to accomodate payload
-[] Hot reload?
-[] Payload typing is awkward
-[] Form submission
-[] Session persistence on reload
+☐ Hot reload?
+☐ Payload typing is awkward
+☐ Form submission
+☐ Session persistence on reload
+
+✔ Change protocol for actions to accomodate payload @done(24-06-15 14:31)

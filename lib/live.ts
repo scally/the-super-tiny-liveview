@@ -23,7 +23,7 @@ interface LiveData<TLocal, TShared> {
   onMultiplayer: (...args: any[]) => void
 }
 
-export const live = <TLocal extends {}, TShared extends {}>({
+export const live = <TLocal, TShared>({
   dispatch = () => {}, 
   mount = () => {}, 
   render, 
@@ -31,43 +31,6 @@ export const live = <TLocal extends {}, TShared extends {}>({
   local = {} as TLocal,
   debug = false,
 }: LiveApp<TLocal, TShared>) => {
-  const createRenderAfterChangeProxy = (ws: ServerWebSocket<LiveData<TLocal, TShared>>, watched: object) => 
-    addDeepSetterHook(watched, () => {
-      frameworkRender(ws)
-    })
-
-  const createPublishAndRenderAfterChangeProxy = (ws: ServerWebSocket<LiveData<TLocal, TShared>>, watched: object) =>
-    addDeepSetterHook(watched, () => {
-      frameworkRender(ws)
-      pubsub.emit('multiplayer')
-    })
-
-  // HACK: We are likely over-calling `afterSet` here X times,
-  //  once for each level of nesting. 
-  //  Should create an inner function in here that ensures it's called once
-  //  per branch, perhaps
-  const addDeepSetterHook = (o: any, afterSet: Function) => {
-    for (const attrName in o) {
-      if (!o[attrName] || typeof o[attrName] !== 'object') continue
-
-      o[attrName] = addDeepSetterHook(o[attrName], afterSet)
-    }
-
-    return new Proxy(o, {
-      set(obj, prop, value) {
-        if (value && typeof value === 'object') {
-          obj[prop] = addDeepSetterHook(value, afterSet)
-        } else {
-          obj[prop] = value
-        }
-
-        afterSet()
-
-        return true
-      }
-    })
-  }
-
   const pubsub = new EventEmitter()
 
   const frameworkRender = (ws: ServerWebSocket<LiveData<TLocal, TShared>>) => {
@@ -106,8 +69,13 @@ export const live = <TLocal extends {}, TShared extends {}>({
     websocket: {
       perMessageDeflate: true,
       open(ws) {
-        ws.data.local = createRenderAfterChangeProxy(ws, structuredClone(local))
-        ws.data.shared = createPublishAndRenderAfterChangeProxy(ws, shared)
+        ws.data.local = addDeepSetterHook(structuredClone(local), () => {
+          frameworkRender(ws)
+        })
+        ws.data.shared = addDeepSetterHook(shared, () => {
+          frameworkRender(ws)
+          pubsub.emit('multiplayer')
+        })
         mount({
           addTimer: (interval: number, message: FSA) => {
             addTimer(ws, interval, message)
@@ -137,4 +105,30 @@ export const live = <TLocal extends {}, TShared extends {}>({
       },
     }
   } satisfies Serve<LiveData<TLocal, TShared>>
+}
+
+// HACK: We are likely over-calling `afterSet` here X times,
+//  once for each level of nesting. 
+//  Should create an inner function in here that ensures it's called once
+//  per branch, perhaps
+const addDeepSetterHook = (o: any, afterSet: Function) => {
+  for (const attrName in o) {
+    if (!o[attrName] || typeof o[attrName] !== 'object') continue
+
+    o[attrName] = addDeepSetterHook(o[attrName], afterSet)
+  }
+
+  return new Proxy(o, {
+    set(obj, prop, value) {
+      if (value && typeof value === 'object') {
+        obj[prop] = addDeepSetterHook(value, afterSet)
+      } else {
+        obj[prop] = value
+      }
+
+      afterSet()
+
+      return true
+    }
+  })
 }
