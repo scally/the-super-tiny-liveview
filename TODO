@@ -10,4 +10,4 @@
 ✔ Change protocol for actions to accomodate payload @done(24-06-15 14:31)
 
 examples:
-  ☐ tictac game rules are buggy - winning inconsistent
+  ✔ tictac game rules are buggy - winning inconsistent @done(24-06-15 16:04)

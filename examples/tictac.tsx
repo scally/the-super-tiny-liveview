@@ -3,8 +3,6 @@ import { randomUUID } from 'node:crypto'
 
 type RandomUUID = ReturnType<typeof randomUUID>
 
-// BUG: Determining a winner is inconsistent
-
 Bun.serve(live({
   local: {
     playerId: null as RandomUUID | null
@@ -112,12 +110,12 @@ const GridComponent = ({shared}: any) => {
   })
 }
 
-interface Move {
+export interface Move {
   row: string
   col: string
 }
 
-type Grid = ('X' | 'O' | null )[][]
+export type Grid = ('X' | 'O' | null )[][]
 
 const localPlayerName = (players: ReturnType<typeof randomUUID>[], localId: ReturnType<typeof randomUUID> | null) => {
   if (!localId) return
@@ -125,7 +123,7 @@ const localPlayerName = (players: ReturnType<typeof randomUUID>[], localId: Retu
   return players.indexOf(localId) === 0 ? 'X' : players.indexOf(localId) === 1 ? 'O' : null
 }
 
-const movesToGrid = (moves: Move[]): Grid => {
+export const movesToGrid = (moves: Move[]): Grid => {
   return moves.reduce((prev, {row, col}, index) => {
     let player = 'X'
     if (index % 2 !== 0)  {
@@ -146,16 +144,14 @@ const isTie = (moves: Move[]) =>
 const isBoardFilled = (moves: Move[]) =>
   moves.length === 9
 
-const calculateWinner = (moves: Move[]) => {
-  const grid = movesToGrid(moves)
-
+export const calculateWinnerForGrid = (grid: Grid) => {
   const checkCoords = [
     [[0,0], [0,1], [0,2]],
     [[1,0], [1,1], [1,2]],
     [[2,0], [2,1], [2,2]],
 
     [[0,0], [1,0], [2,0]],
-    [[0,1], [1,1], [2,2]],
+    [[0,1], [1,1], [2,1]],
     [[0,2], [1,2], [2,2]],
 
     [[0,0], [1,1], [2,2]],
@@ -179,3 +175,5 @@ const calculateWinner = (moves: Move[]) => {
   return null
 }
 
+export const calculateWinner = (moves: Move[]) =>
+  calculateWinnerForGrid(movesToGrid(moves))
