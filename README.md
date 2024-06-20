@@ -1,5 +1,16 @@
 # the-super-tiny-liveview
 
+## intentional tradeoffs
+
+* + The API user doesn't need to worry too much about syncing state between clients/server, they can just focus on app logic
+* + Rendering is familiar to React SSR devs
+* + Low number of dependencies
+
+* - Unoptimized, potentially quite slow
+* - Insecure
+* - Far less features than other LiveView systems
+* - Consuming the library is not very ergonomic
+
 ## why
 
 There are lots of cool liveview implementations out there already!
@@ -9,12 +20,6 @@ I wanted to break down the concept as simply as I could to get a good understand
 Along the way I thought maybe a tiny example without many dependencies or features would help me & others understand how LiveView style webapps function.
 
 The focus now is sharpening it into a tiny, fun DSL to make quick & dirty multiplayer apps simple to build.
-
-*DANGER*
-
-*This was not built with performance and best-practices in mind!*
-
-*If you use this in prod you might be sad*
 
 ## how
 
@@ -30,9 +35,7 @@ To run:
 bun examples/kitchen-sink-counter.tsx
 ```
 
-This project was created using `bun init` in bun v1.1.10. [Bun](https://bun.sh) is a fast all-in-one JavaScript runtime.
-
-## Docs
+## docs
 
 live view apps only require a `render` function. you can also supply:
 * mount - called on app startup, can be used to add timers
