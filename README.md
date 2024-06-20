@@ -2,14 +2,15 @@
 
 ## intentional tradeoffs
 
-* + The API user doesn't need to worry too much about syncing state between clients/server, they can just focus on app logic
-* + Rendering is familiar to React SSR devs
-* + Low number of dependencies
+* ✅ The API user doesn't need to worry too much about syncing state between clients/server, they can just focus on app logic
+* ✅ Rendering is familiar to React SSR devs
+* ✅ Low number of dependencies
+* ✅ Simple API
 
-* - Unoptimized, potentially quite slow
-* - Insecure
-* - Far less features than other LiveView systems
-* - Consuming the library is not very ergonomic
+* 🛑 Unoptimized, potentially quite slow
+* 🛑 Insecure
+* 🛑 Far less features than other LiveView systems
+* 🛑 Consuming the library is not very ergonomic
 
 ## why
 
