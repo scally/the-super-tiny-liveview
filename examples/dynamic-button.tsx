@@ -21,7 +21,7 @@ console.log(Bun.serve(
         <div style={{flexDirection: 'column', display: 'flex'}}>
           <button data-stl-action='toggle'>Toggle inc button</button>
           {
-            local.showButton && <button data-stl-action='inc'></button>
+            local.showButton && <button data-stl-action='inc'>Inc</button>
           }
           <div>Count: {local.count}</div>
         </div>
