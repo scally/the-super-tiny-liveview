@@ -5,7 +5,6 @@
 ☐ Session persistence on reload
 ☐ Fix issue where passing the proxy to render/dispatch causes issues w/deepEquals
 ☐ Component library
-☐ use mutationobserver, if action is rendered after initial render it wont work
 ☐ could move HTML/JS to a separate package?
 ☐ can make your own "lobby" for sending invite to friends
 ☐ move selector logic into selector/projection API in live()
